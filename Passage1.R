@@ -16,6 +16,7 @@ library(agricolae)
 library(emmeans)
 library(ggplot2)
 library(ggpubr)
+library(DescTools)
 
 #analyzing passages individually, all organized as two factor completely randomized designs
 
@@ -51,6 +52,12 @@ shapiro.test(pass1_dat$resids) # p-value = 2.328e-10
 #levene's test - Tests for homogeneity of variance
 #library(car)
 leveneTest(Bg_biomass ~ Treatment, data = pass1_dat) # p-value = 0.05167
+
+##Below ground biomass models - using Treatment.vague as the factor
+pass1_bbmod<-lm(Bg_biomass ~ Treatment.vague + Exp_rep, pass1_dat)
+Anova(pass1_bbmod)
+pass1_dat$Treatment.vague<-as.factor(pass1_dat$Treatment.vague)
+DunnettTest(pass1_dat$Bg_biomass, pass1_dat$Treatment.vague)
 
 ####Above ground biomass models
 #model with exp_rep as a blocking factor
@@ -97,6 +104,11 @@ shapiro.test(pass1_dat$trans_abresids) # p-value = 0.0005635
 #library(car)
 leveneTest(trans_ag_biomass ~ Treatment, data = pass1_dat) # p-value = 0.3472
 
+##Above ground biomass models - using Treatment.vague as the factor
+pass1_abmod<-lm(trans_ag_biomass ~ Treatment.vague + Exp_rep, pass1_dat)
+Anova(pass1_abmod)
+DunnettTest(pass1_dat$trans_ag_biomass, pass1_dat$Treatment.vague)
+
 
 ####Total biomass models
 #model with exp_rep as a blocking factor
@@ -120,6 +132,10 @@ shapiro.test(pass1_dat$tbresids) # p-value = 2.163e-08
 leveneTest(Tot_biomass ~ Treatment, data = pass1_dat) # p-value = 0.05024
 
 
+##Total biomass models - using Treatment.vague as the factor
+pass1_tbmod<-lm(Tot_biomass ~ Treatment.vague + Exp_rep, pass1_dat)
+Anova(pass1_tbmod)
+DunnettTest(pass1_dat$Tot_biomass, pass1_dat$Treatment.vague)
 
 
 #Number of leaves models - experimental reps were significantly different
@@ -141,6 +157,12 @@ plot(resids ~ preds, data = pass1_dat) #
 shapiro.test(pass1_dat$resids) # p-value = 0.001341
 leveneTest(Num_leaves ~ Treatment, data = pass1_dat) # p-value = 0.1147
 
+##Num leaves models - using Treatment.vague as the factor
+pass1_nlmod<-lm(Num_leaves ~ Treatment.vague + Exp_rep, pass1_dat)
+Anova(pass1_nlmod)
+DunnettTest(pass1_dat$Num_leaves, pass1_dat$Treatment.vague)
+
+
 
 #ANCOVA on height data using Height5 (final height) as Y and Height1 (initial height before addition of slurries) as the covariable X
 #using pass1_dat csv file for this - but for linear regression I think I need the pass1_heightdat file - they are formatted differently
@@ -155,16 +177,17 @@ summary(regression) #R2 = 0.642 , adjusted R2 = 0.6405, so Height1 accounts for 
 
 
 #contrasts
-#Q1 = comparing microbial slurries to sterilized slurries
+#Q1 = comparing microbial slurries to sterilized slurries (update: microbial vs water)
 #Q2 = comparing chenopod microbial slurries to nonchenopod microbial slurries
 #Q3 = comparing sterile water to sterilized soil slurries
 #Q4 = comparing A300 plants inoculated with Chenopod slurry vs Faro plants inoculated with Chenopod slurry
 #Q5 = comparing A300 plants inoculated with any microbes vs Faro plants inoculated with any microbes
 #Q6 = comparing A300 plants inoculated with non-Chenopod slurries vs Faro plants inoculated with non-Chenopod slurries
 
+
 pass1_dat$Treatment<-as.factor(pass1_dat$Treatment)
 #contrasts: add in an H2O vs sterilized slurries question - see if there's a difference, or maybe do H2O vs everything else
-contrastmatrix<-cbind(c(-1,-1,+1,+1,+1,0,-1,-1,-1,+1,+1,+1,0,-1),
+contrastmatrix<-cbind(c(-1,-1,0,0,0,+3,-1,-1,-1,0,0,0,+3,-1),
                       c(-1,+2,0,0,0,0,-1,-1,+2,0,0,0,0,-1),
                       c(0,0,-1,-1,-1,+3,0,0,0,-1,-1,-1,+3,0), 
                       c(0,-1,0,0,0,0,0,0,+1,0,0,0,0,0),
@@ -189,6 +212,72 @@ Anova(pass1_abmod_vague)
 tuk<-HSD.test(pass1_abmod_vague, "Treatment.vague")
 
 
+##playing around with different contrast questions
+
+#Q2 - chenopod microbial vs sterile water
+#Q3 - non-chenopod microbial vs sterile water
+
+contrastmatrix1<-c(0,-1,0,0,0,+1,0,0,-1,0,0,0,+1,0)
+contrasts(pass1_dat$Treatment)<-contrastmatrix1
+
+contrast_bb_mod<-aov(Bg_biomass ~ Treatment+Exp_rep, pass1_dat)  
+summary(contrast_bb_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+contrast_tb_mod<-aov(Tot_biomass ~ Treatment+Exp_rep, pass1_dat) #sterile vs slurries p = 0.07, try sterile water vs sterilized slurries
+summary(contrast_tb_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+contrast_ab_mod<-aov(trans_ag_biomass ~ Treatment+Exp_rep, pass1_dat) #significant difference between Microbial chenopod vs Microbial non-chenopod slurries
+summary(contrast_ab_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+contrast_leaves_mod<-aov(Num_leaves ~ Treatment+Exp_rep, pass1_dat) #approaching significance between microbial chenopod vs non-chenopod (p=0.06)
+summary(contrast_leaves_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+#looking at non-chenopd vs sterile water
+contrastmatrix2<-c(-1,0,0,0,0,+2,-1,-1,0,0,0,0,+2,-1)
+contrasts(pass1_dat$Treatment)<-contrastmatrix2
+
+contrast_bb_mod<-aov(Bg_biomass ~ Treatment+Exp_rep, pass1_dat)  
+summary(contrast_bb_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+contrast_tb_mod<-aov(Tot_biomass ~ Treatment+Exp_rep, pass1_dat) #sterile vs slurries p = 0.07, try sterile water vs s
+summary(contrast_tb_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+contrast_ab_mod<-aov(trans_ag_biomass ~ Treatment+Exp_rep, pass1_dat) #significant difference between Microbial chenopod vs Microbial non-chenopod slurries
+summary(contrast_ab_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+contrast_leaves_mod<-aov(Num_leaves ~ Treatment+Exp_rep, pass1_dat) #approaching significance between microbial chenopod vs non-chenopod (p=0.06)
+summary(contrast_leaves_mod, split = list(Treatment = list("Chenopod microbial vs sterile water" =1)))
+
+
+
+
+#####May 12, 2022 - redoing contrasts to include microbial chenopod vs sterile water
+
+#contrasts
+#Q1 = microbial chenopod vs sterile water
+#Q2 = microbial trt vs sterilized trt (no sterile water)
+#Q3 = A300-chenopod(microbial) vs A300-non-chenopod(microbial)
+#Q4 = Faro-chenopod(microbial) vs Faro-non-chenopod(microbial)
+#Q5 = comparing A300 plants inoculated with any microbes vs Faro plants inoculated with any microbes
+
+contrastmatrix3<-cbind(c(0,-1,0,0,0,+1,0,0,-1,0,0,0,+1,0),
+                       c(-1,-1,+1,+1,+1,0,-1,-1,-1,+1,+1,+1,0,-1),
+                       c(-1,+2,0,0,0,0,-1,0,0,0,0,0,0,0),
+                       c(0,0,0,0,0,0,0,-1,+2,0,0,0,0,-1),
+                       c(-1,-1,0,0,0,0,-1,+1,+1,0,0,0,0,+1))
+contrasts(pass1_dat$Treatment)<-contrastmatrix3
+
+contrast3_bb_mod<-aov(Bg_biomass ~ Treatment+Exp_rep, pass1_dat) #Microbial-Chen vs sterile water p = 0.01
+summary(contrast3_bb_mod, split = list(Treatment = list("Microbial-Chen vs Sterile water" =1, "Microbial vs sterilized"=2, "A300-Chen vs A300-nonChen"=3, "Faro-Chen vs Faro-nonChen"=4, "A300-microbial vs Faro-microbial"=5)))
+
+contrast3_tb_mod<-aov(Tot_biomass ~ Treatment+Exp_rep, pass1_dat) #Microbial-Chen vs sterile water p = 0.01
+summary(contrast3_tb_mod, split = list(Treatment = list("Microbial-Chen vs Sterile water" =1, "Microbial vs sterilized"=2, "A300-Chen vs A300-nonChen"=3, "Faro-Chen vs Faro-nonChen"=4, "A300-microbial vs Faro-microbial"=5)))
+
+contrast3_ab_mod<-aov(trans_ag_biomass ~ Treatment+Exp_rep, pass1_dat) #Microbial-Chen vs sterile water p = 0.03, FaroChen vs FarononChen p = 0.07
+summary(contrast3_ab_mod, split = list(Treatment = list("Microbial-Chen vs Sterile water" =1, "Microbial vs sterilized"=2, "A300-Chen vs A300-nonChen"=3, "Faro-Chen vs Faro-nonChen"=4, "A300-microbial vs Faro-microbial"=5)))
+
+contrast3_nl_mod<-aov(Num_leaves ~ Treatment+Exp_rep, pass1_dat) #A300-Chen vs A300-nonchen p = 0.08, A300-microbial vs Faro-microbial p = 0.04
+summary(contrast3_nl_mod, split = list(Treatment = list("Microbial-Chen vs Sterile water" =1, "Microbial vs sterilized"=2, "A300-Chen vs A300-nonChen"=3, "Faro-Chen vs Faro-nonChen"=4, "A300-microbial vs Faro-microbial"=5)))
 
 
 #####SUBSETTING DATA SETS BY HOST AND ANALYZING THAT WAY
@@ -202,6 +291,9 @@ p1bvm_bbmod<-lm(Bg_biomass ~ Slurry + Exp_rep, subp1_bvm_dat)
 Anova(p1bvm_bbmod) #slurry p = 0.04
 tuk<-HSD.test(p1bvm_bbmod, "Slurry") 
 lsd<-LSD.test(p1bvm_bbmod, "Slurry") #separation but no pattern
+
+p1bvm_bbmod2<-lm(Bg_biomass ~ Treatment.vague + Exp_rep, subp1_bvm_dat)
+Anova(p1bvm_bbmod2)
 
 subp1_bvm_dat$Slurry<-as.factor(subp1_bvm_dat$Slurry)
 subp2_q_dat$Slurry<-as.factor(subp1_q_dat$Slurry)
@@ -243,6 +335,44 @@ Anova(p1bvm_nlmod) #slurry p = 0.15, exp_rep p = 0.02
 
 p1q_nlmod<-lm(Num_leaves ~ Slurry + Exp_rep, subp1_q_dat)
 Anova(p1q_nlmod) #slurry p = 0.8 exp_rep p < 0.0001
+
+
+#####Subset by host - grouping treatments
+#belowground biomass
+p1q_bbmod2<-lm(Bg_biomass ~ Treatment.vague + Exp_rep, subp1_q_dat)
+Anova(p1q_bbmod2)
+DunnettTest(subp1_q_dat$Bg_biomass, subp1_q_dat$Treatment.vague) #NS
+p1bvm_bbmod2<-lm(Bg_biomass ~ Treatment.vague + Exp_rep, subp1_bvm_dat)
+Anova(p1bvm_bbmod2)
+DunnettTest(subp1_bvm_dat$Bg_biomass, subp1_bvm_dat$Treatment.vague) #NS
+
+#aboveground biomass
+p1q_abmod2<-lm(trans_ag_biomass ~ Treatment.vague + Exp_rep, subp1_q_dat)
+Anova(p1q_abmod2) #treatment.vague p = 0.06
+DunnettTest(subp1_q_dat$Ag_biomass, subp1_q_dat$Treatment.vague) #NS
+p1bvm_abmod2<-lm(trans_ag_biomass ~ Treatment.vague + Exp_rep, subp1_bvm_dat)
+Anova(p1bvm_abmod2)
+DunnettTest(subp1_bvm_dat$Ag_biomass, subp1_bvm_dat$Treatment.vague)#NS
+
+#total biomass
+p1q_tbmod2<-lm(Tot_biomass ~ Treatment.vague + Exp_rep, subp1_q_dat)
+Anova(p1q_tbmod2)
+DunnettTest(subp1_q_dat$Tot_biomass, subp1_q_dat$Treatment.vague) #NS
+p1bvm_tbmod2<-lm(Tot_biomass ~ Treatment.vague + Exp_rep, subp1_bvm_dat)
+Anova(p1bvm_tbmod2)
+DunnettTest(subp1_bvm_dat$Tot_biomass, subp1_bvm_dat$Treatment.vague) #NS
+
+#num leaves
+p1q_nlmod2<-lm(Num_leaves ~ Treatment.vague + Exp_rep, subp1_q_dat)
+Anova(p1q_nlmod2)
+DunnettTest(subp1_q_dat$Num_leaves, subp1_q_dat$Treatment.vague) #NS
+p1bvm_nlmod2<-lm(Num_leaves ~ Treatment.vague + Exp_rep, subp1_bvm_dat)
+Anova(p1bvm_nlmod2) # treatment.vague p = 0.09
+DunnettTest(subp1_bvm_dat$Num_leaves, subp1_bvm_dat$Treatment.vague) #NS
+
+
+
+
 
 
 

@@ -84,9 +84,12 @@ plot_heatmap(physeq,sample.label = "microbiome_origin", taxa.label="Phylum")
 ##trying to get ordination plot - https://joey711.github.io/phyloseq/plot_ordination-examples.html#mds_(%E2%80%9Cpcoa%E2%80%9D)_on_unifrac_distances
 ordu = ordinate(physeq, "PCoA", "bray") #other options like "NMDS" and "unifrac"
 p1<-plot_ordination(physeq, ordu, color = "host_inoculated", shape = "microbiome_origin") +
-  geom_point(size = 2) +
-  theme(axis.title.x = element_text(color="black", size = 15)) +
-  theme(axis.title.y = element_text(color="black", size =15))
+  geom_point(size = 4) +
+  theme(axis.title.x = element_text(color="black", size = 20)) +
+  theme(axis.title.y = element_text(color="black", size =20))  +
+  theme(axis.text = element_text(size = 20, color = "black")) +
+  guides(color=guide_legend("Host inoculated"),
+         shape=guide_legend("Microbiome origin"))
 
 #plot microbiome network
 plot_net(physeq, maxdist = 0.4, point_label = "host_inoculated", color = "host_inoculated", shape = "microbiome_origin")
